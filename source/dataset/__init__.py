@@ -12,6 +12,7 @@ def dataset_factory(cfg: DictConfig) -> List[utils.data.DataLoader]:
 
     datasets = eval(
         f"load_{cfg.dataset.name}_data")(cfg)
+    
 
     dataloaders = init_stratified_dataloader(cfg, *datasets) \
         if cfg.dataset.stratified \

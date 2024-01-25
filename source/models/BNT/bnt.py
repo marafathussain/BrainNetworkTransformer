@@ -17,24 +17,19 @@ class TransPoolingEncoder(nn.Module):
 
     def __init__(self, input_feature_size, input_node_num, hidden_size, output_node_num, pooling=True, orthogonal=True, freeze_center=False, project_assignment=True):
         super().__init__()
-        self.transformer = InterpretableTransformerEncoder(d_model=input_feature_size, nhead=4,
-                                                           dim_feedforward=hidden_size,
-                                                           batch_first=True)
+        self.transformer = InterpretableTransformerEncoder(d_model=input_feature_size, nhead=4, dim_feedforward=hidden_size, batch_first=True)
 
         self.pooling = pooling
         if pooling:
             encoder_hidden_size = 32
             self.encoder = nn.Sequential(
-                nn.Linear(input_feature_size *
-                          input_node_num, encoder_hidden_size),
+                nn.Linear(input_feature_size * input_node_num, encoder_hidden_size),
                 nn.LeakyReLU(),
                 nn.Linear(encoder_hidden_size, encoder_hidden_size),
                 nn.LeakyReLU(),
-                nn.Linear(encoder_hidden_size,
-                          input_feature_size * input_node_num),
+                nn.Linear(encoder_hidden_size, input_feature_size * input_node_num),
             )
-            self.dec = DEC(cluster_number=output_node_num, hidden_dimension=input_feature_size, encoder=self.encoder,
-                           orthogonal=orthogonal, freeze_center=freeze_center, project_assignment=project_assignment)
+            self.dec = DEC(cluster_number=output_node_num, hidden_dimension=input_feature_size, encoder=self.encoder, orthogonal=orthogonal, freeze_center=freeze_center, project_assignment=project_assignment)
 
     def is_pooling_enabled(self):
         return self.pooling
@@ -64,8 +59,7 @@ class BrainNetworkTransformer(BaseModel):
 
         self.pos_encoding = config.model.pos_encoding
         if self.pos_encoding == 'identity':
-            self.node_identity = nn.Parameter(torch.zeros(
-                config.dataset.node_sz, config.model.pos_embed_dim), requires_grad=True)
+            self.node_identity = nn.Parameter(torch.zeros(config.dataset.node_sz, config.model.pos_embed_dim), requires_grad=True)
             forward_dim = config.dataset.node_sz + config.model.pos_embed_dim
             nn.init.kaiming_normal_(self.node_identity)
 
@@ -95,7 +89,9 @@ class BrainNetworkTransformer(BaseModel):
             nn.LeakyReLU(),
             nn.Linear(256, 32),
             nn.LeakyReLU(),
-            nn.Linear(32, 2)
+            #nn.Linear(32, 2)
+            nn.Linear(32, 1)
+            
         )
 
     def forward(self,

@@ -34,6 +34,7 @@ def main(cfg: DictConfig):
     for _ in range(cfg.repeat_time):
         # run = wandb.init(project=cfg.project, entity=cfg.wandb_entity, reinit=True, group=f"{group_name}", tags=[f"{cfg.dataset.name}"])
         run = wandb.init(project=cfg.project, reinit=True, group=f"{group_name}", tags=[f"{cfg.dataset.name}"])
+        #print(cfg)
         model_training(cfg)
 
         run.finish()

@@ -4,6 +4,6 @@ test_batch_size: 16
 val_batch_size: 16
 train_set: 0.7
 val_set: 0.1
-path: /home/ch225256/Data/abide.npy
-stratified: True
+path: /home/ch225256/Data/ABIDE_pcp/abide.npy
+stratified: False
 drop_last: True

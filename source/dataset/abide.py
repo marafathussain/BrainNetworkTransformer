@@ -9,7 +9,8 @@ def load_abide_data(cfg: DictConfig):
     data = np.load(cfg.dataset.path, allow_pickle=True).item()
     final_timeseires = data["timeseires"]
     final_pearson = data["corr"]
-    labels = data["label"]
+    #labels = data["label"]
+    labels = data["fiq"]
     site = data['site']
 
     scaler = StandardScaler(mean=np.mean(
@@ -25,4 +26,4 @@ def load_abide_data(cfg: DictConfig):
         cfg.dataset.node_sz, cfg.dataset.node_feature_sz = final_pearson.shape[1:]
         cfg.dataset.timeseries_sz = final_timeseires.shape[2]
 
-    return final_timeseires, final_pearson, labels, site
+    return final_timeseires, final_pearson, labels #, site

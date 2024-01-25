@@ -1,4 +1,4 @@
-from source.utils import accuracy, TotalMeter, count_params, isfloat
+from source.utils import accuracy, TotalMeter, count_params, isfloat, mse
 import torch
 import numpy as np
 from pathlib import Path
@@ -32,13 +32,14 @@ class Train:
         self.total_steps = cfg.total_steps
         self.optimizers = optimizers
         self.lr_schedulers = lr_schedulers
-        self.loss_fn = torch.nn.CrossEntropyLoss(reduction='sum')
+        #self.loss_fn = torch.nn.CrossEntropyLoss(reduction='sum')
+        self.loss_fn = torch.nn.MSELoss()
         self.save_path = Path(cfg.log_path) / cfg.unique_id
         self.save_learnable_graph = cfg.save_learnable_graph
 
         self.init_meters()
 
-    def init_meters(self):
+    def init_meters(self):                     # look for TotalMeter as imported from utils/meters/
         self.train_loss, self.val_loss,\
             self.test_loss, self.train_accuracy,\
             self.val_accuracy, self.test_accuracy = [
@@ -69,12 +70,17 @@ class Train:
 
             loss = self.loss_fn(predict, label)
 
-            self.train_loss.update_with_weight(loss.item(), label.shape[0])
+            #self.train_loss.update_with_weight(loss.item(), label.shape[0])
+            self.train_loss.update(loss.item())
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            top1 = accuracy(predict, label[:, 1])[0]
-            self.train_accuracy.update_with_weight(top1, label.shape[0])
+            #top1 = accuracy(predict, label[:, 1])[0]
+            #self.train_accuracy.update_with_weight(top1, label.shape[0])
+            label = label.unsqueeze(1)
+            mse_error = mse(predict, label)
+            #self.train_accuracy.update_with_weight(mse_error, label.shape[0])
+            self.train_accuracy.update(mse_error)
             # wandb.log({"LR": lr_scheduler.lr,
             #            "Iter loss": loss.item()})
 
@@ -91,10 +97,15 @@ class Train:
             label = label.float()
 
             loss = self.loss_fn(output, label)
-            loss_meter.update_with_weight(
-                loss.item(), label.shape[0])
-            top1 = accuracy(output, label[:, 1])[0]
-            acc_meter.update_with_weight(top1, label.shape[0])
+            #loss_meter.update_with_weight(loss.item(), label.shape[0])
+            loss_meter.update(loss.item())
+            #top1 = accuracy(output, label[:, 1])[0]
+            #acc_meter.update_with_weight(top1, label.shape[0])
+            label = label.unsqueeze(1)
+            mse_error = mse(output, label)
+            #acc_meter.update_with_weight(mse_error, label.shape[0])
+            acc_meter.update(mse_error)
+        '''
             result += F.softmax(output, dim=1)[:, 1].tolist()
             labels += label[:, 1].tolist()
 
@@ -113,6 +124,8 @@ class Train:
             if isfloat(k):
                 recall[int(float(k))] = report[k]['recall']
         return [auc] + list(metric) + recall
+        '''
+        return mse_error
 
     def generate_save_learnable_matrix(self):
 
@@ -146,24 +159,23 @@ class Train:
         for epoch in range(self.epochs):
             self.reset_meters()
             self.train_per_epoch(self.optimizers[0], self.lr_schedulers[0])
-            val_result = self.test_per_epoch(self.val_dataloader,
-                                             self.val_loss, self.val_accuracy)
+            val_result = self.test_per_epoch(self.val_dataloader, self.val_loss, self.val_accuracy)
 
-            test_result = self.test_per_epoch(self.test_dataloader,
-                                              self.test_loss, self.test_accuracy)
+            test_result = self.test_per_epoch(self.test_dataloader, self.test_loss, self.test_accuracy)
 
             self.logger.info(" | ".join([
                 f'Epoch[{epoch}/{self.epochs}]',
                 f'Train Loss:{self.train_loss.avg: .3f}',
-                f'Train Accuracy:{self.train_accuracy.avg: .3f}%',
+                f'Train Accuracy:{self.train_accuracy.avg: .3f}',
                 f'Test Loss:{self.test_loss.avg: .3f}',
-                f'Test Accuracy:{self.test_accuracy.avg: .3f}%',
-                f'Val AUC:{val_result[0]:.4f}',
-                f'Test AUC:{test_result[0]:.4f}',
-                f'Test Sen:{test_result[-1]:.4f}',
-                f'LR:{self.lr_schedulers[0].lr:.4f}'
+                f'Test Accuracy:{self.test_accuracy.avg: .3f}' #,
+                #f'Val AUC:{val_result[0]:.4f}',
+                #f'Test AUC:{test_result[0]:.4f}',
+                #f'Test Sen:{test_result[-1]:.4f}',
+                #f'LR:{self.lr_schedulers[0].lr:.4f}'
             ]))
 
+            '''
             wandb.log({
                 "Train Loss": self.train_loss.avg,
                 "Train Accuracy": self.train_accuracy.avg,
@@ -177,6 +189,7 @@ class Train:
                 'micro recall': test_result[-5],
                 'micro precision': test_result[-6],
             })
+            '''
 
             training_process.append({
                 "Epoch": epoch,
@@ -184,13 +197,13 @@ class Train:
                 "Train Accuracy": self.train_accuracy.avg,
                 "Test Loss": self.test_loss.avg,
                 "Test Accuracy": self.test_accuracy.avg,
-                "Test AUC": test_result[0],
-                'Test Sensitivity': test_result[-1],
-                'Test Specificity': test_result[-2],
-                'micro F1': test_result[-4],
-                'micro recall': test_result[-5],
-                'micro precision': test_result[-6],
-                "Val AUC": val_result[0],
+                #"Test AUC": test_result[0],
+                #'Test Sensitivity': test_result[-1],
+                #'Test Specificity': test_result[-2],
+                #'micro F1': test_result[-4],
+                #'micro recall': test_result[-5],
+                #'micro precision': test_result[-6],
+                #"Val AUC": val_result[0],
                 "Val Loss": self.val_loss.avg,
             })
 
