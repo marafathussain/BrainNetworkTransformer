@@ -18,6 +18,7 @@ class TransPoolingEncoder(nn.Module):
     def __init__(self, input_feature_size, input_node_num, hidden_size, output_node_num, pooling=True, orthogonal=True, freeze_center=False, project_assignment=True):
         super().__init__()
         self.transformer = InterpretableTransformerEncoder(d_model=input_feature_size, nhead=4, dim_feedforward=hidden_size, batch_first=True)
+        print('size of d_model:', d_model.shape)
 
         self.pooling = pooling
         if pooling:
@@ -36,6 +37,7 @@ class TransPoolingEncoder(nn.Module):
 
     def forward(self, x):
         x = self.transformer(x)
+        print('size of x:', x.shape)
         if self.pooling:
             x, assignment = self.dec(x)
             return x, assignment
@@ -48,7 +50,7 @@ class TransPoolingEncoder(nn.Module):
         return self.dec.loss(assignment)
 
 
-class BrainNetworkTransformer(BaseModel):
+class RelationalBrainNetworkTransformer(BaseModel):
 
     def __init__(self, config: DictConfig):
 
@@ -90,8 +92,8 @@ class BrainNetworkTransformer(BaseModel):
             nn.Linear(256, 32),
             nn.LeakyReLU(),
             #nn.Linear(32, 2)
-            nn.Linear(32, 1) # This worked perfectly for 1 regression output
-            #nn.Linear(32, 4)
+            #nn.Linear(32, 1) # This worked perfectly for 1 regression output
+            nn.Linear(32, 4)
         )
 
     def forward(self,
@@ -113,6 +115,8 @@ class BrainNetworkTransformer(BaseModel):
         node_feature = self.dim_reduction(node_feature)
 
         node_feature = node_feature.reshape((bz, -1))
+        # print('size of Z_G:', node_feature.shape) --> [batch_size, 800]
+        
 
         return self.fc(node_feature)
 

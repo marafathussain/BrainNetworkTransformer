@@ -12,10 +12,13 @@ def init_dataloader(cfg: DictConfig,
                     final_pearson: torch.tensor,
                     labels: torch.tensor) -> List[utils.DataLoader]:
     #labels = F.one_hot(labels.to(torch.int64))
-    length = final_timeseires.shape[0]  
+    length = final_timeseires.shape[0]
+    if cfg.model.name == 'rbnt':
+        tmp = cfg.dataset.train_set*cfg.datasz.percentage
+        train_length = int(length*tmp*(tmp-1))
+    
     train_length = int(length*cfg.dataset.train_set*cfg.datasz.percentage)
     val_length = int(length*cfg.dataset.val_set)
-    
     if cfg.datasz.percentage == 1.0:
         test_length = length-train_length-val_length
     else:
@@ -23,7 +26,7 @@ def init_dataloader(cfg: DictConfig,
 
     with open_dict(cfg):
         # total_steps, steps_per_epoch for lr schedular
-        cfg.steps_per_epoch = ((train_length - 1) // cfg.dataset.batch_size) + 1
+        cfg.steps_per_epoch = (train_length - 1) // cfg.dataset.batch_size + 1
         cfg.total_steps = cfg.steps_per_epoch * cfg.training.epochs
 
     dataset = utils.TensorDataset(

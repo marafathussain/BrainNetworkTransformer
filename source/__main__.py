@@ -10,16 +10,22 @@ from datetime import datetime
 
 
 def model_training(cfg: DictConfig):
-
     with open_dict(cfg):
         cfg.unique_id = datetime.now().strftime("%m-%d-%H-%M-%S")
 
+    #print('Before anything:', cfg)    
     dataloaders = dataset_factory(cfg)
+    #print('after dataloaders:', cfg) 
     logger = logger_factory(cfg)
+    #print('after logger:', cfg) 
     model = model_factory(cfg)
+    #print('after model:', cfg) 
     optimizers = optimizers_factory(model=model, optimizer_configs=cfg.optimizer)
+    #print('After optimizers:', cfg) 
     lr_schedulers = lr_scheduler_factory(lr_configs=cfg.optimizer, cfg=cfg)
+    #print('After lr_schedulers:', cfg) 
     training = training_factory(cfg, model, optimizers, lr_schedulers, dataloaders, logger)
+    #print('After training:', cfg) 
 
     training.train()
 

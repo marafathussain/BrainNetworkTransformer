@@ -56,6 +56,7 @@ class BrainNetworkTransformer(BaseModel):
 
         self.attention_list = nn.ModuleList()
         forward_dim = config.dataset.node_sz
+        print('forward_dim:', forward_dim)
 
         self.pos_encoding = config.model.pos_encoding
         if self.pos_encoding == 'identity':
@@ -66,6 +67,7 @@ class BrainNetworkTransformer(BaseModel):
         sizes = config.model.sizes
         sizes[0] = config.dataset.node_sz
         in_sizes = [config.dataset.node_sz] + sizes[:-1]
+        print('in_sizes:', in_sizes)
         do_pooling = config.model.pooling
         self.do_pooling = do_pooling
         for index, size in enumerate(sizes):

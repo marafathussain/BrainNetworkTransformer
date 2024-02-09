@@ -25,7 +25,5 @@ def load_abide_data(cfg: DictConfig):
 
         cfg.dataset.node_sz, cfg.dataset.node_feature_sz = final_pearson.shape[1:]
         cfg.dataset.timeseries_sz = final_timeseires.shape[2]
-        
-        #cfg.dataset.node_sz = cfg.dataset.node_sz*2
 
     return final_timeseires, final_pearson, labels #, site

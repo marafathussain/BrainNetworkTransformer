@@ -18,6 +18,7 @@ class TransPoolingEncoder(nn.Module):
     def __init__(self, input_feature_size, input_node_num, hidden_size, output_node_num, pooling=True, orthogonal=True, freeze_center=False, project_assignment=True):
         super().__init__()
         self.transformer = InterpretableTransformerEncoder(d_model=input_feature_size, nhead=4, dim_feedforward=hidden_size, batch_first=True)
+        #print('size of d_model:', input_feature_size) --> 200
 
         self.pooling = pooling
         if pooling:
@@ -35,9 +36,12 @@ class TransPoolingEncoder(nn.Module):
         return self.pooling
 
     def forward(self, x):
+        #print('size of x before Tansformer:', x.shape) --> [batch_size, 200, 200]
         x = self.transformer(x)
+        #print('size of x after Transformer:', x.shape) --> [batch_size, 200, 200]
         if self.pooling:
             x, assignment = self.dec(x)
+            #print('size of x after OCRead pooling:', x.shape) --> [batch_size, 100, 200]
             return x, assignment
         return x, None
 
@@ -48,7 +52,7 @@ class TransPoolingEncoder(nn.Module):
         return self.dec.loss(assignment)
 
 
-class BrainNetworkTransformer(BaseModel):
+class RelationalBrainNetworkTransformer(BaseModel):
 
     def __init__(self, config: DictConfig):
 
@@ -79,40 +83,58 @@ class BrainNetworkTransformer(BaseModel):
                                     freeze_center=config.model.freeze_center,
                                     project_assignment=config.model.project_assignment))
 
+        self.combinedDataTransformer = InterpretableTransformerEncoder(d_model=forward_dim, nhead=8, batch_first=True)
+        
         self.dim_reduction = nn.Sequential(
             nn.Linear(forward_dim, 8),
             nn.LeakyReLU()
         )
 
         self.fc = nn.Sequential(
-            nn.Linear(8 * sizes[-1], 256),
+            nn.Linear(8 * sizes[-1] * 2, 256),
             nn.LeakyReLU(),
             nn.Linear(256, 32),
             nn.LeakyReLU(),
-            #nn.Linear(32, 2)
-            nn.Linear(32, 1) # This worked perfectly for 1 regression output
-            #nn.Linear(32, 4)
+            nn.Linear(32, 4)
         )
 
     def forward(self,
-                time_seires: torch.tensor,
-                node_feature: torch.tensor):
+                node_feature1: torch.tensor,
+                node_feature2: torch.tensor):
 
-        bz, _, _, = node_feature.shape
+        bz, _, _, = node_feature1.shape
 
         if self.pos_encoding == 'identity':
-            pos_emb = self.node_identity.expand(bz, *self.node_identity.shape)
-            node_feature = torch.cat([node_feature, pos_emb], dim=-1)
+            pos_emb1 = self.node_identity.expand(bz, *self.node_identity.shape)
+            node_feature1 = torch.cat([node_feature1, pos_emb1], dim=-1)
+            
+            pos_emb2 = self.node_identity.expand(bz, *self.node_identity.shape)
+            node_feature2 = torch.cat([node_feature2, pos_emb2], dim=-1)
 
-        assignments = []
+        combined_outputs = []  # List to store individual outputs before concatenation
 
-        for atten in self.attention_list:
-            node_feature, assignment = atten(node_feature)
-            assignments.append(assignment)
+        for node_feature in [node_feature1, node_feature2]:
+            assignments = []
 
+            for atten in self.attention_list:
+                node_feature, assignment = atten(node_feature)
+                assignments.append(assignment)
+                
+            # Append the individual output before dimension reduction to the list
+            combined_outputs.append(node_feature)
+        
+        # Concatenate the individual outputs along the last dimension
+        combined_node_features = torch.cat(combined_outputs, dim=1)
+        
+        node_feature = self.combinedDataTransformer(combined_node_features)
+
+        #print('size of node_features before dimension reduction:', node_feature.shape) --> [batch_size, 100, 200]
         node_feature = self.dim_reduction(node_feature)
+        #print('size of node_features after dimension reduction:', node_feature.shape) --> [batch_size, 100, 8]
 
         node_feature = node_feature.reshape((bz, -1))
+        # print('size of Z_G:', node_feature.shape) --> [batch_size, 800]
+        
 
         return self.fc(node_feature)
 

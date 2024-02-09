@@ -70,16 +70,21 @@ class Train:
 
             predict = self.model(time_series, node_feature)
 
-            label = label.unsqueeze(1) 
+            label = label.unsqueeze(1) # I added
             loss = self.loss_fn(predict, label)
 
+            #self.train_loss.update_with_weight(loss.item(), label.shape[0])
             self.train_loss.update(loss.item())
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            #top1 = accuracy(predict, label[:, 1])[0]
+            #self.train_accuracy.update_with_weight(top1, label.shape[0])
             mae_error = mae(predict, label)
+            #self.train_accuracy.update_with_weight(mse_error, label.shape[0])
             self.train_accuracy.update(mae_error)
-
+            # wandb.log({"LR": lr_scheduler.lr,
+            #            "Iter loss": loss.item()})
 
     def test_per_epoch(self, dataloader, loss_meter, acc_meter):
         labels = []
@@ -162,9 +167,9 @@ class Train:
             #test_result = self.test_per_epoch(self.test_dataloader, self.test_loss, self.test_accuracy)
             
             # =============== Relational BNT ====================
-            self.train_pairs_per_epoch(self.config, self.optimizers[0], self.lr_schedulers[0])
-            val_result = self.test_pairs_per_epoch(self.config, self.val_dataloader, self.val_loss, self.val_accuracy)
-            test_result = self.test_pairs_per_epoch(self.config, self.test_dataloader, self.test_loss, self.test_accuracy)
+            self.train_pairs_per_epoch(self.optimizers[0], self.lr_schedulers[0])
+            val_result = self.test_pairs_per_epoch(self.val_dataloader, self.val_loss, self.val_accuracy)
+            test_result = self.test_pairs_per_epoch(self.test_dataloader, self.test_loss, self.test_accuracy)
 
             self.logger.info(" | ".join([
                 f'Epoch[{epoch}/{self.epochs}]',
@@ -213,7 +218,7 @@ class Train:
     
     # I added
     #==================================================================================================
-    def train_pairs_per_epoch(self, cfg, optimizer, lr_scheduler):
+    def train_pairs_per_epoch(self, optimizer, lr_scheduler):
         self.model.train()
         
         paired_data = []
@@ -223,10 +228,6 @@ class Train:
 
         # Create all possible permutations for indices
         all_permutations = list(permutations(range(dataset_size), 2))
-        
-        with open_dict(cfg):
-            cfg.steps_per_epoch = ((len(all_permutations) - 1) // cfg.dataset.batch_size) + 1
-            cfg.total_steps = cfg.steps_per_epoch * cfg.training.epochs
         
         # Iterate through the permutations to create pairs
         for perm in all_permutations:
@@ -239,7 +240,7 @@ class Train:
             paired_data.append(((time_series1, node_feature1, label1), (time_series2, node_feature2, label2)))
 
         # Create a new DataLoader for the paired data
-        batch_size = cfg.dataset.batch_size 
+        batch_size = 16  # Adjust as needed
         paired_dataloader = DataLoader(paired_data, batch_size=batch_size, shuffle=True)
 
         # Now you can iterate through paired_dataloader to get pairs of data
@@ -268,7 +269,6 @@ class Train:
 
             lr_scheduler.update(optimizer=optimizer, step=self.current_step)
             node_feature1, node_feature2, combined_label = node_feature1.cuda(), node_feature2.cuda(), combined_label.cuda()
-            r1, r2, r3, r4 = r1.cuda(), r2.cuda(), r3.cuda(), r4.cuda()
 
             #concatenated_time_series, concatenated_node_feature, combined_label = concatenated_time_series.cuda(), concatenated_node_feature.cuda(), combined_label.cuda()
 
@@ -295,7 +295,7 @@ class Train:
             mae_error = mae(predicted_r1, r1)
             self.train_accuracy.update(mae_error/2.0)
             
-    def test_pairs_per_epoch(self, cfg, dataloader, loss_meter, acc_meter):
+    def test_pairs_per_epoch(self, dataloader, loss_meter, acc_meter):
         labels = []
         result = []
 
@@ -306,8 +306,6 @@ class Train:
                 
                 if torch.equal(time_series1, time_series2):
                     continue
-                elif len(label1) != cfg.dataset.batch_size or len(label2) != cfg.dataset.batch_size:
-                    continue
                 
                 label1, label2 = label1.float(), label2.float()
                 
@@ -316,15 +314,19 @@ class Train:
                 r2 = torch.abs(label1 - label2).unsqueeze(1)
                 r3 = torch.max(label1, label2).unsqueeze(1)
                 r4 = torch.min(label1, label2).unsqueeze(1)
-                
+            
                 # Concatenate r1, r2, r3, r4 into combined_label
                 combined_label = torch.cat((r1, r2, r3, r4), dim=1)
             
-                node_feature1, node_feature2, combined_label = node_feature1.cuda(), node_feature2.cuda(), combined_label.cuda()
-                r1, r2, r3, r4 = r1.cuda(), r2.cuda(), r3.cuda(), r4.cuda()
+                # Assuming time_series1 and time_series2 have shape (batch_size, seq_len, feature_dim)
+                concatenated_time_series = torch.cat((time_series1, time_series2), dim=1)
+                concatenated_node_feature = torch.cat((node_feature1, node_feature2), dim=1)
                 
-                combined_label = combined_label.squeeze(1)
-                output = self.model(node_feature1, node_feature2)
+                concatenated_time_series, concatenated_node_feature, combined_label = concatenated_time_series.cuda(), concatenated_node_feature.cuda(), combined_label.cuda()
+                
+                output = self.model(concatenated_time_series, concatenated_node_feature)
+            
+                combined_label = combined_label.unsqueeze(1)
                 loss = self.loss_fn(output, combined_label)
                 
                 loss_meter.update(loss.item())
@@ -334,8 +336,7 @@ class Train:
 
         return mae_error/2.0
          #==================================================================================================
-        
+         
         if self.save_learnable_graph:
             self.generate_save_learnable_matrix()
         self.save_result(training_process)
-        

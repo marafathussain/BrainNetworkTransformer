@@ -1,1 +1,2 @@
 from .bnt import BrainNetworkTransformer
+from .rbnt import RelationalBrainNetworkTransformer
