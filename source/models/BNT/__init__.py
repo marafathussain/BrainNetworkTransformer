@@ -1,2 +1,5 @@
 from .bnt import BrainNetworkTransformer
 from .rbnt import RelationalBrainNetworkTransformer
+from .rbnt2 import RelationalBrainNetworkTransformer2
+from .rbnt3 import RelationalBrainNetworkTransformer3
+from .rbnt4 import RelationalBrainNetworkTransformer4

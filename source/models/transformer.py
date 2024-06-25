@@ -38,7 +38,8 @@ class GraphTransformer(BaseModel):
             nn.LeakyReLU(),
             nn.Linear(256, 32),
             nn.LeakyReLU(),
-            nn.Linear(32, 2)
+            #nn.Linear(32, 2)
+            nn.Linear(32, 1)
         )
 
     def forward(self, time_seires, node_feature):

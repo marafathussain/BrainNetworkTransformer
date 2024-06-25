@@ -2,10 +2,11 @@
 
 #SBATCH --partition=fnndsc-gpu
 #SBATCH --account=fnndsc
-#SBATCH --time=12:00:00
+#SBATCH --time=7:00:00
 #SBATCH --nodes=1
+#SBATCH --mem=16G
 #SBATCH --gres=gpu:Titan_RTX:1
-#SBATCH --output=logs/slurm-%j.out
+#SBATCH --output=logs/new_fbnetgen-%j.out
 
 source activate bnt
-python -m source --multirun datasz=100p model=rbnt dataset=ABIDE repeat_time=1 preprocess=non_mixup
+python -m source --multirun model=fbnetgen score=fiq

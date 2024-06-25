@@ -1,5 +1,5 @@
 # seq, gnn, fbnetgen 
-name: RelationalBrainNetworkTransformer
+name: RelationalBrainNetworkTransformer3
 sizes: [360, 10]  # Note: The input node size should not be included here
 pooling: [false, true]
 pos_encoding: none  # identity, none

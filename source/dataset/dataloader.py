@@ -35,10 +35,12 @@ def init_dataloader(cfg: DictConfig,
     train_dataset, val_dataset, test_dataset = utils.random_split(dataset, [train_length, val_length, test_length])
     
     train_dataloader = utils.DataLoader(train_dataset, batch_size=cfg.dataset.batch_size, shuffle=True, drop_last=cfg.dataset.drop_last)
-    val_dataloader = utils.DataLoader(val_dataset, batch_size=cfg.dataset.batch_size, shuffle=True, drop_last=False)
-    test_dataloader = utils.DataLoader(test_dataset, batch_size=cfg.dataset.batch_size, shuffle=True, drop_last=False)
+    #---- the following three lines are commented, trying to facilitate 5-fold CV----------
+    #val_dataloader = utils.DataLoader(val_dataset, batch_size=cfg.dataset.batch_size, shuffle=True, drop_last=False)
+    #test_dataloader = utils.DataLoader(test_dataset, batch_size=cfg.dataset.batch_size, shuffle=True, drop_last=False)
 
-    return [train_dataloader, val_dataloader, test_dataloader]
+    #return [train_dataloader, val_dataloader, test_dataloader]
+    return train_dataloader #added
 
 
 def init_stratified_dataloader(cfg: DictConfig,

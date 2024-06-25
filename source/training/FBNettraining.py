@@ -1,4 +1,4 @@
-from source.utils import accuracy, isfloat
+from source.utils import accuracy, isfloat, mse, mae
 import torch
 import numpy as np
 import torch.nn.functional as F
@@ -20,9 +20,10 @@ class FBNetTrain(Train):
                  optimizers: List[torch.optim.Optimizer],
                  lr_schedulers: List[LRScheduler],
                  dataloaders: List[utils.DataLoader],
-                 logger: logging.Logger) -> None:
+                 logger: logging.Logger,
+                 fold: int) -> None:
 
-        super().__init__(cfg, model, optimizers, lr_schedulers, dataloaders, logger)
+        super().__init__(cfg, model, optimizers, lr_schedulers, dataloaders, logger, fold)
         self.group_loss = cfg.model.group_loss
         self.sparsity_loss = cfg.model.sparsity_loss
         self.sparsity_loss_weight = cfg.model.sparsity_loss_weight
@@ -51,24 +52,29 @@ class FBNetTrain(Train):
                     loss += mixup_cluster_loss(learnable_matrix,
                                                label)
                 else:
-                    loss += 2 * intra_loss(label[:, 1], learnable_matrix) + \
-                        inner_loss(label[:, 1], learnable_matrix)
+                    #loss += 2 * intra_loss(label[:, 1], learnable_matrix) + \
+                    #    inner_loss(label[:, 1], learnable_matrix)
+                    loss += 2 * intra_loss(label, learnable_matrix) + \
+                        inner_loss(label, learnable_matrix)
 
             if self.sparsity_loss:
                 sparsity_loss = self.sparsity_loss_weight * \
                     torch.norm(learnable_matrix, p=1)
                 loss += sparsity_loss
 
-            self.train_loss.update_with_weight(loss.item(), label.shape[0])
+            #self.train_loss.update_with_weight(loss.item(), label.shape[0])
+            self.train_loss.update(loss.item())
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            top1 = accuracy(predict, label[:, 1])[0]
-            self.train_accuracy.update_with_weight(top1, label.shape[0])
-            # wandb.log({"LR": lr_scheduler.lr,
-            #            "Iter loss": loss.item()})
+            #top1 = accuracy(predict, label[:, 1])[0]
 
-    def test_per_epoch(self, dataloader, loss_meter, acc_meter):
+            label = label.unsqueeze(1)
+            mae_error = mae(predict, label)
+            #self.train_accuracy.update_with_weight(top1, label.shape[0])
+            self.train_accuracy.update(mae_error)
+
+    def test_per_epoch(self, cfg, dataloader, loss_meter, acc_meter):
         labels = []
         result = []
 
@@ -76,17 +82,30 @@ class FBNetTrain(Train):
 
         for time_series, node_feature, label in dataloader:
             label = label.float()
+            
+            if len(label) != cfg.dataset.batch_size:
+                    continue
+                
             time_series, node_feature, label = time_series.cuda(), node_feature.cuda(), label.cuda()
             output, _ = self.model(time_series, node_feature)
 
             loss = self.loss_fn(output, label)
-            loss_meter.update_with_weight(
-                loss.item(), label.shape[0])
-            top1 = accuracy(output, label[:, 1])[0]
-            acc_meter.update_with_weight(top1, label.shape[0])
-            result += F.softmax(output, dim=1)[:, 1].tolist()
-            labels += label[:, 1].tolist()
+            #loss_meter.update_with_weight(
+            #    loss.item(), label.shape[0])
+            loss_meter.update(loss.item())
+            
+            labels.append(label.cpu().detach().numpy())
+            result.append(output.cpu().detach().numpy())
+            
+            #top1 = accuracy(output, label[:, 1])[0]
+            label = label.unsqueeze(1)
+            mae_error = mae(output, label)
+            #acc_meter.update_with_weight(top1, label.shape[0])
+            acc_meter.update(mae_error)
+            #result += F.softmax(output, dim=1)[:, 1].tolist()
+            #labels += label[:, 1].tolist()
 
+        '''
         auc = roc_auc_score(labels, result)
         result = np.array(result)
         result[result > 0.5] = 1
@@ -102,3 +121,5 @@ class FBNetTrain(Train):
             if isfloat(k):
                 recall[int(float(k))] = report[k]['recall']
         return [auc] + list(metric) + recall
+        '''
+        return {'label': np.array(labels), 'predicted_score': np.array(result)}

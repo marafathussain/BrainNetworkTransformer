@@ -31,7 +31,8 @@ class BrainNetCNN(BaseModel):
         self.N2G = torch.nn.Conv2d(1, 256, (self.d, 1))
         self.dense1 = torch.nn.Linear(256, 128)
         self.dense2 = torch.nn.Linear(128, 30)
-        self.dense3 = torch.nn.Linear(30, 2)
+        #self.dense3 = torch.nn.Linear(30, 2)
+        self.dense3 = torch.nn.Linear(30, 1)
 
     def forward(self,
                 time_seires: torch.tensor,

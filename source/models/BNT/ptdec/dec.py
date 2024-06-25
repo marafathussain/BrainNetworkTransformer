@@ -88,3 +88,4 @@ class DEC(nn.Module):
         :return: [number of clusters, hidden dimension] Tensor of dtype float
         """
         return self.assignment.get_cluster_centers()
+

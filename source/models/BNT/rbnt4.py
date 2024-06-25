@@ -51,7 +51,7 @@ class TransPoolingEncoder(nn.Module):
     def loss(self, assignment):
         return self.dec.loss(assignment)
 
-class RelationalBrainNetworkTransformer(BaseModel):
+class RelationalBrainNetworkTransformer4(BaseModel):
 
     def __init__(self, config: DictConfig):
 
@@ -90,11 +90,12 @@ class RelationalBrainNetworkTransformer(BaseModel):
         )
 
         self.fc = nn.Sequential(
-            nn.Linear(8 * sizes[-1] * 2, 256),
+            nn.Linear(8 * sizes[-1] * 2, 256),  
+            #nn.Linear(8 * sizes[-1], 256),
             nn.LeakyReLU(),
             nn.Linear(256, 32),
             nn.LeakyReLU(),
-            nn.Linear(32, 4)
+            nn.Linear(32, 2)
         )
 
     def forward(self,
@@ -112,6 +113,7 @@ class RelationalBrainNetworkTransformer(BaseModel):
 
         combined_outputs = []  # List to store individual outputs before concatenation
 
+        
         for node_feature in [node_feature1, node_feature2]:
             assignments = []
 
@@ -126,7 +128,15 @@ class RelationalBrainNetworkTransformer(BaseModel):
         combined_node_features = torch.cat(combined_outputs, dim=1)
         
         node_feature = self.combinedDataTransformer(combined_node_features)
-
+        '''
+        #-------- test
+        node_feature = node_feature1 + node_feature2
+        assignments = []
+        for atten in self.attention_list:
+            node_feature, assignment = atten(node_feature)
+            assignments.append(assignment)
+        #------------
+        '''
         #print('size of node_features before dimension reduction:', node_feature.shape) --> [batch_size, 20, 200]
         node_feature = self.dim_reduction(node_feature)
         #print('size of node_features after dimension reduction:', node_feature.shape) --> [batch_size, 20, 8]
